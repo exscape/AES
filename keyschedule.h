@@ -1,1 +1,1 @@
-int aes_expand_key(const char *in_key, char *out_keys);
+int aes_expand_key(const unsigned char *in_key, unsigned char *out_keys);
