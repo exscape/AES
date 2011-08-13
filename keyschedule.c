@@ -2,8 +2,13 @@
 #include <unistd.h>
 #include <stdint.h>
 #include <string.h> /* memcpy */
+#ifndef _TABLES_H
 #include "tables.h"
+#endif
+
+#ifndef _DEBUG_H
 #include "debug.h" 
+#endif
 
 void RotWord(unsigned char *s) {
 	// Rotates the first 4 bytes in s in this manner:
