@@ -30,9 +30,9 @@ int main() {
 	if (memcmp(expanded_keys_00, out_keys, 11*16) != 0) {
 		fprintf(stderr, "ERROR: expanded_keys_00 did not match expected output!\n");
 
-		printf("expected: ");
+		printf("expected:");
 		print_hex(expanded_keys_00, 11*16);
-		printf("\nresult:   ");
+		printf("\nresult:");
 		print_hex(out_keys, 11*16);
 		exit(1);
 	}
