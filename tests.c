@@ -118,6 +118,34 @@ int main() {
 
 	printf("\n");
 	printf("---------------------------------------\n");
+	printf("TESTING INVERSE FUNCTIONS\n");
+	printf("---------------------------------------\n");
+
+	unsigned char orig_test_data[] = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff};
+	unsigned char test_data[16];
+	memcpy(test_data, orig_test_data, 16);
+	ShiftRows(test_data);
+	InvShiftRows(test_data);
+	if (memcmp(test_data, orig_test_data, 16) != 0) {
+		fprintf(stderr, "ERROR: InvShiftRows(ShiftRows(x)) != x\n");
+	}
+	else {
+		printf("PASS: ShiftRows/InvShiftRows are eachothers inverses\n");
+	}
+
+	memcpy(test_data, orig_test_data, 16);
+	MixColumns(test_data);
+	InvMixColumns(test_data);
+	if (memcmp(test_data, orig_test_data, 16) != 0) {
+		fprintf(stderr, "ERROR: InvMixColumns(MixColumns(x)) != x\n");
+	}
+	else {
+		printf("PASS: MixColumns/InvMixColumns are eachothers inverses\n");
+	}
+
+
+	printf("\n");
+	printf("---------------------------------------\n");
 	printf("OVERALL AES TESTS\n");
 	printf("---------------------------------------\n");
 
@@ -141,11 +169,13 @@ int main() {
         printf("PASS: encryption\n");
     }
 
+
+
 	unsigned char plaintext[16] = {0};
 	aes_decrypt(expected_ciphertext, plaintext, out_keys);
 
 	if (memcmp(plaintext, original_plaintext, 16) != 0) {
-		fprintf(stderr, "ERROR: plaintext didn't match original plaintext\n");
+		fprintf(stderr, "ERROR: decrypted plaintext didn't match original plaintext\n");
 
 		printf("expected:"); print_hex(original_plaintext, 16);
 		printf("got:"); print_hex(plaintext, 16);
