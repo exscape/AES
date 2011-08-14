@@ -19,6 +19,12 @@ void SubBytes(unsigned char *state) {
 	}
 }
 
+void InvSubBytes(unsigned char *state) {
+	for (int i=0; i<16; i++) {
+		state[i] = invsbox [ state[i] ];
+	}
+}
+
 void ShiftWord(uint32_t *d, uint8_t steps) {
 	steps *= 8; // bytes -> bits
 
@@ -38,6 +44,12 @@ void ShiftRows(unsigned char *state) {
 			state[4*j + i] = ((cols[i] >> (3-j) * 8) & 0xff);
 		}
 	}
+}
+
+void InvShiftRows(unsigned char *state) {
+}
+
+void InvMixColumns(unsigned char *state) {
 }
 
 void MixColumn(unsigned char *part_state) {
@@ -62,7 +74,7 @@ void MixColumns(unsigned char *state) {
 void aes_encrypt(const unsigned char *plaintext, unsigned char *state, const unsigned char *keys) {
 	memcpy(state, plaintext, 16);
 
-		printf("round[ 0].input    ");
+/*		printf("round[ 0].input    ");
 		for (int i=0; i<16; i++) {
 			printf("%02x", state[i]);
 		}
@@ -73,12 +85,13 @@ void aes_encrypt(const unsigned char *plaintext, unsigned char *state, const uns
 			printf("%02x", keys[i]);
 		}
 		printf("\n");
-
+*/
 	// Initial round
 	AddRoundKey(state, keys /*+ 0 */);
 
 	// Rounds
 	for (int round = 1; round </*= eller inte? */ 10; round++) { // TODO FIXME: bekräfta att det är rätt antal
+/*
 		printf("round[%2d].start    ", round);
 		for (int i=0; i<16; i++) {
 			printf("%02x", state[i]);
@@ -86,31 +99,31 @@ void aes_encrypt(const unsigned char *plaintext, unsigned char *state, const uns
 		printf("\n");
 
 		
-		
+*/		
 		SubBytes(state);
-		printf("round[%2d].s_box    ", round);
+/*		printf("round[%2d].s_box    ", round);
 		for (int i=0; i<16; i++) {
 			printf("%02x", state[i]);
 		}
 		printf("\n");
 
 
-
+*/
 		ShiftRows(state);
-		printf("round[%2d].s_row    ", round);
+/*		printf("round[%2d].s_row    ", round);
 		for (int i=0; i<16; i++) {
 			printf("%02x", state[i]);
 		}
 		printf("\n");
 
-
+*/
 		MixColumns(state);
-		printf("round[%2d].m_col    ", round);
+/*		printf("round[%2d].m_col    ", round);
 		for (int i=0; i<16; i++) {
 			printf("%02x", state[i]);
 		}
 		printf("\n");
-
+*/
 		AddRoundKey(state, keys + (round * 16));
 	}
 
@@ -118,4 +131,25 @@ void aes_encrypt(const unsigned char *plaintext, unsigned char *state, const uns
 	SubBytes(state);
 	ShiftRows(state);
 	AddRoundKey(state, keys + 10*16);
+}
+
+void aes_decrypt(const unsigned char *ciphertext, unsigned char *state, const unsigned char *keys) {
+
+	memcpy(state, ciphertext, 16);
+
+	// Initial round
+	AddRoundKey(state, keys + 10*16);
+
+	// Rounds
+	for (int round = 9 /* Nr - 1 */; round >=/* >= eller inte? */ 1; round--) { // TODO FIXME: bekräfta att det är rätt antal
+		InvShiftRows(state);
+		InvSubBytes(state);
+		AddRoundKey(state, keys + (round * 16));
+		InvMixColumns(state);
+	}
+
+	// Final round	
+	InvShiftRows(state);
+	InvSubBytes(state);
+	AddRoundKey(state, keys + 0);
 }

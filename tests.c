@@ -121,14 +121,14 @@ int main() {
 	printf("OVERALL AES TESTS\n");
 	printf("---------------------------------------\n");
 
-	unsigned char plaintext[] = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff};
+	unsigned char original_plaintext[] = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff};
 	const unsigned char key[] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f};
 //	unsigned char out_keys[176] = {0}; // declared above
 	unsigned char ciphertext[16] = {0};
 	const unsigned char expected_ciphertext[] = {0x69, 0xc4, 0xe0, 0xd8, 0x6a, 0x7b, 0x04, 0x30, 0xd8, 0xcd, 0xb7, 0x80, 0x70, 0xb4, 0xc5, 0x5a};
 
 	aes_expand_key(key, out_keys);
-	aes_encrypt(plaintext, ciphertext, out_keys);
+	aes_encrypt((const unsigned char *)original_plaintext, ciphertext, out_keys);
 
 	if (memcmp(ciphertext, expected_ciphertext, 16) != 0) {
         fprintf(stderr, "ERROR: ciphertext didn't match expected ciphertext\n");
@@ -140,6 +140,19 @@ int main() {
     else {
         printf("PASS: encryption\n");
     }
+
+	unsigned char plaintext[16] = {0};
+	aes_decrypt(expected_ciphertext, plaintext, out_keys);
+
+	if (memcmp(plaintext, original_plaintext, 16) != 0) {
+		fprintf(stderr, "ERROR: plaintext didn't match original plaintext\n");
+
+		printf("expected:"); print_hex(original_plaintext, 16);
+		printf("got:"); print_hex(plaintext, 16);
+	}
+	else {
+		printf("PASS: decryption\n");
+	}
 
 	return 0;
 }
