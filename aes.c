@@ -19,34 +19,25 @@ void SubBytes(unsigned char *state) {
 	}
 }
 
-void ShiftRow(uint32_t *word, uint8_t steps) {
-    steps *= 8; // bytes -> bits
+void ShiftWord(uint32_t *d, uint8_t steps) {
+	steps *= 8; // bytes -> bits
 
-    asm(//"bswap %0;"
-		"rorl %1, %0"
-            : "=g"(*word)
-            : "cI"(steps), "0"(*word));
+	asm("roll %1, %0"
+	: "=g"(*d)
+	: "cI"(steps), "0"(*d));
 }
 
 void ShiftRows(unsigned char *state) {
-/*	
-    uint32_t *words[4];
-    for (int i=0; i < 4; i++) {
-        words[i] = (uint32_t *) (state + 4*i);
-    }
+	uint32_t cols[4];
 
-    // words[0] should be left untouched
-    ShiftRow(words[1], 1);
-    ShiftRow(words[2], 2);
-    ShiftRow(words[3], 3);
-*/
+	for (int i=1; i<=3; i++) {
+		cols[i] = (state[4*0 + i] << 24) | (state[4*1 + i] << 16) | (state[4*2 + i] << 8) | (state[4*3 + i]);
+		ShiftWord(&cols[i], i);
 
-	register uint8_t i, j;
-    i = state[1]; state[1] = state[5]; state[5] = state[9]; state[9] = state[13]; state[13] = i;
-    i = state[10]; state[10] = state[2]; state[2] = i;
-    j = state[3]; state[3] = state[15]; state[15] = state[11]; state[11] = state[7]; state[7] = j;
-    j = state[14]; state[14] = state[6]; state[6]  = j;
-	
+		for (int j = 0; j<4; j++) {
+			state[4*j + i] = ((cols[i] >> (3-j) * 8) & 0xff);
+		}
+	}
 }
 
 void MixColumn(unsigned char *part_state) {
