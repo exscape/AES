@@ -46,10 +46,44 @@ void ShiftRows(unsigned char *state) {
 	}
 }
 
+void InvShiftWord(uint32_t *d, uint8_t steps) {
+	steps *= 8; // bytes -> bits
+
+	asm("rorl %1, %0"
+	: "=g"(*d)
+	: "cI"(steps), "0"(*d));
+}
+
 void InvShiftRows(unsigned char *state) {
+	uint32_t cols[4];
+
+	for (int i=1; i<=3; i++) {
+		cols[i] = (state[4*0 + i] << 24) | (state[4*1 + i] << 16) | (state[4*2 + i] << 8) | (state[4*3 + i]);
+		InvShiftWord(&cols[i], i);
+
+		for (int j = 0; j<4; j++) {
+			state[4*j + i] = ((cols[i] >> (3-j) * 8) & 0xff);
+		}
+	}
+}
+
+void InvMixColumn(unsigned char *part_state) {
+	unsigned char a[4];
+	unsigned char r[4];
+	memcpy(a, part_state, 4);
+
+	r[0] = gmul14[a[0]] ^ gmul11[a[1]] ^ gmul13[a[2]] ^ gmul9[a[3]];
+	r[1] = gmul9[a[0]] ^ gmul14[a[1]] ^ gmul11[a[2]] ^ gmul13[a[3]];
+	r[2] = gmul13[a[0]] ^ gmul9[a[1]] ^ gmul14[a[2]] ^ gmul11[a[3]];
+	r[3] = gmul11[a[0]] ^ gmul13[a[1]] ^ gmul9[a[2]] ^ gmul14[a[3]];
+
+	memcpy(part_state, r, 4);
 }
 
 void InvMixColumns(unsigned char *state) {
+	for (int i=0; i<4; i++) {
+		InvMixColumn(state + i*4);
+	}
 }
 
 void MixColumn(unsigned char *part_state) {

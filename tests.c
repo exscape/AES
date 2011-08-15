@@ -155,7 +155,7 @@ int main() {
 	unsigned char invshiftrows_in[] = {0xfd, 0xe5, 0x96, 0xf1, 0x05, 0x47, 0x37, 0xd2, 0x35, 0xfe, 0xba, 0xd7, 0xf1, 0xe3, 0xd0, 0x4e};
 	unsigned char invshiftrows_exp_out[] = /* även invmixcol IN */ {0xfd, 0xe3, 0xba, 0xd2, 0x05, 0xe5, 0xd0, 0xd7, 0x35, 0x47, 0x96, 0x4e, 0xf1, 0xfe, 0x37, 0xf1};
 
-	unsigned char invmix_exp_out[] = {0x3e, 0x1c, 0x22, 0xc0, 0xb6, 0xfc, 0xbf, 0x76, 0x8d, 0xa8, 0x50, 0x67, 0xf6, 0x17, 0x04, 0x95};
+	unsigned char invmix_exp_out[] = {0x2d, 0x7e, 0x86, 0xa3, 0x39, 0xd9, 0x39, 0x3e, 0xe6, 0x57, 0x0a, 0x11, 0x01, 0x90, 0x4e, 0x16};
 	unsigned char buf[16] = {0};
 
 	memcpy(buf, invshiftrows_in, 16);
@@ -169,16 +169,16 @@ int main() {
 	}
 
 	memcpy(buf, invshiftrows_exp_out, 16); /* sic, this is also mixcol in */
+	InvMixColumns(buf);
 
 	if(memcmp(buf, invmix_exp_out, 16) != 0) {
 		fprintf(stderr, "ERROR: InvMixColumns output didn't match expected output\n");
+		printf("expected:"); print_hex(invmix_exp_out, 16);
+		printf("got:"); print_hex(buf, 16);
 	}
 	else {
 		printf("PASS: InvMixColumns\n");
 	}
-
-
-
 
 	unsigned char orig_test_data[] = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff};
 	unsigned char test_data[16];
@@ -202,7 +202,6 @@ int main() {
 		printf("PASS: MixColumns/InvMixColumns are eachothers inverses\n");
 	}
 
-
 	printf("\n");
 	printf("---------------------------------------\n");
 	printf("OVERALL AES TESTS\n");
@@ -222,12 +221,10 @@ int main() {
 	
 		printf("expected:"); print_hex(expected_ciphertext, 16);
 		printf("got: "); print_hex(ciphertext, 16);
-
     }
     else {
         printf("PASS: encryption\n");
     }
-
 
 	unsigned char plaintext[16] = {0};
 	aes_decrypt(expected_ciphertext, plaintext, out_keys);
