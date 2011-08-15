@@ -9,6 +9,7 @@
 #include "aes.h"
 
 void AddRoundKey(unsigned char *state, const unsigned char *keys) {
+	// XOR the state with the round key, byte for byte.
 	// The caller is responsible for specifying the offset in keys!
 	// We simply process the first 16 bytes.
 	for (int i=0; i<16; i++) {
@@ -69,48 +70,59 @@ void ShiftRows(unsigned char *state, bool inverse  /* is this InvShiftRows? */) 
 	}
 }
 
-void MixColumn(unsigned char *part_state) {
-	//
-	// TODO: KOMMENTERA
-	//
-	unsigned char a[4];
-	unsigned char r[4];
-	memcpy(a, part_state, 4);
-
-	r[0] = gmul2[a[0]] ^ gmul3[a[1]] ^ a[2] ^ a[3];
-	r[1] = a[0] ^ gmul2[a[1]] ^ gmul3[a[2]] ^ a[3];
-	r[2] = a[0] ^ a[1] ^ gmul2[a[2]] ^ gmul3[a[3]];
-	r[3] = gmul3[a[0]] ^ a[1] ^ a[2] ^ gmul2[a[3]];
-
-	memcpy(part_state, r, 4);
-}
-
 void MixColumns(unsigned char *state) {
-	for (int i=0; i<4; i++) {
-		MixColumn(state + i*4);
+	// Thanks to the fact that we map the bytes differently than the AES spec, this function (and its inverse)
+	// becomes quite a bit simpler (at the cost of making ShiftRows more complex).
+	// This function does matrix multiplication in GF(2^8)
+	// using precalculated tables for Galois Field multiplication.
+
+	for (int col=0; col<4; col++) {
+		unsigned char r[4];
+
+		// Make a copy of the current column to manipulate
+		unsigned char a[4];
+		memcpy(a, state + col*4, 4);
+
+		// Perform the matrix multiplication
+		r[0] = gmul2[a[0]] ^ gmul3[a[1]] ^ a[2] ^ a[3];
+		r[1] = a[0] ^ gmul2[a[1]] ^ gmul3[a[2]] ^ a[3];
+		r[2] = a[0] ^ a[1] ^ gmul2[a[2]] ^ gmul3[a[3]];
+		r[3] = gmul3[a[0]] ^ a[1] ^ a[2] ^ gmul2[a[3]];
+
+		// Copy the answer back to the state
+		memcpy(state + col*4, r, 4);
 	}
 }
 
-void InvMixColumn(unsigned char *part_state) {
-	unsigned char a[4];
-	unsigned char r[4];
-	memcpy(a, part_state, 4);
-
-	r[0] = gmul14[a[0]] ^ gmul11[a[1]] ^ gmul13[a[2]] ^ gmul9[a[3]];
-	r[1] = gmul9[a[0]] ^ gmul14[a[1]] ^ gmul11[a[2]] ^ gmul13[a[3]];
-	r[2] = gmul13[a[0]] ^ gmul9[a[1]] ^ gmul14[a[2]] ^ gmul11[a[3]];
-	r[3] = gmul11[a[0]] ^ gmul13[a[1]] ^ gmul9[a[2]] ^ gmul14[a[3]];
-
-	memcpy(part_state, r, 4);
-}
-
 void InvMixColumns(unsigned char *state) {
-	for (int i=0; i<4; i++) {
-		InvMixColumn(state + i*4);
+	// This function is virtually identical to its non-inverse counterpart,
+	// the only difference is that the matrix used for multiplication is different.
+
+	for (int col=0; col<4; col++) {
+		unsigned char r[4];
+
+		// Make a copy of the current colun to manipulate
+		unsigned char a[4];
+		memcpy(a, state + col*4, 4);
+
+		// Perform the matrix multiplication
+		r[0] = gmul14[a[0]] ^ gmul11[a[1]] ^ gmul13[a[2]] ^ gmul9[a[3]];
+		r[1] = gmul9[a[0]] ^ gmul14[a[1]] ^ gmul11[a[2]] ^ gmul13[a[3]];
+		r[2] = gmul13[a[0]] ^ gmul9[a[1]] ^ gmul14[a[2]] ^ gmul11[a[3]];
+		r[3] = gmul11[a[0]] ^ gmul13[a[1]] ^ gmul9[a[2]] ^ gmul14[a[3]];
+
+		// Copy the answer back to the state
+		memcpy(state + col*4, r, 4);
 	}
 }
 
 void aes_encrypt(const unsigned char *plaintext, unsigned char *state, const unsigned char *keys) {
+	//
+	// The main loop. Should be easy to understand as it's virtually a copy of the pseudocode in the standard.
+	//
+
+
+	// Initialize the state
 	memcpy(state, plaintext, 16);
 
 /*		printf("round[ 0].input    ");
@@ -129,7 +141,7 @@ void aes_encrypt(const unsigned char *plaintext, unsigned char *state, const uns
 	AddRoundKey(state, keys /*+ 0 */);
 
 	// Rounds
-	for (int round = 1; round </*= eller inte? */ 10; round++) { // TODO FIXME: bekräfta att det är rätt antal
+	for (int round = 1; round < 10; round++) {
 /*
 		printf("round[%2d].start    ", round);
 		for (int i=0; i<16; i++) {
@@ -173,14 +185,18 @@ void aes_encrypt(const unsigned char *plaintext, unsigned char *state, const uns
 }
 
 void aes_decrypt(const unsigned char *ciphertext, unsigned char *state, const unsigned char *keys) {
+	//
+	// Just like the aes_encrypt function, this is virtually a copy of the pseudocode in the AES standard, and should be easy to understand.
+	//
 
+	// Initialize the state
 	memcpy(state, ciphertext, 16);
 
 	// Initial round
 	AddRoundKey(state, keys + 10*16);
 
 	// Rounds
-	for (int round = 9 /* Nr - 1 */; round >=/* >= eller inte? */ 1; round--) { // TODO FIXME: bekräfta att det är rätt antal
+	for (int round = 9 /* Nr - 1 */; round >= 1; round--) {
 		InvShiftRows(state);
 		InvSubBytes(state);
 		AddRoundKey(state, keys + (round * 16));
