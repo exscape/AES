@@ -113,9 +113,6 @@ int main() {
 		printf("PASS: expanded_keys_random\n");
 	}
 
-	printf("All key expansion tests passed!\n");
-
-
 	printf("\n");
 	printf("---------------------------------------\n");
 	printf("TESTING MAIN FUNCTIONS\n");

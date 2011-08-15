@@ -15,8 +15,8 @@ void RotWord(unsigned char *s) {
 	// In : 1d 2c 3a 4f
 	// Out: 2c 3a 4f 1d
 
-	uint64_t *d = (uint64_t *)s; 
-	asm("rorl $8, %0" : "=r"(*d) : "r"(*d));
+	uint32_t *d = (uint32_t *)s; 
+	asm("rorl $8, %0" : "=g"(*d) : "0"(*d));
 }
 
 void key_schedule_core(unsigned char *word, int i/*teration*/) {
