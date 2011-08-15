@@ -118,8 +118,67 @@ int main() {
 
 	printf("\n");
 	printf("---------------------------------------\n");
+	printf("TESTING MAIN FUNCTIONS\n");
+	printf("---------------------------------------\n");
+
+	unsigned char shiftrows_in[] = {0x63, 0xca, 0xb7, 0x04, 0x09, 0x53, 0xd0, 0x51, 0xcd, 0x60, 0xe0, 0xe7, 0xba, 0x70, 0xe1, 0x8c};
+	unsigned char shiftrows_expected_out[] = {0x63, 0x53, 0xe0, 0x8c, 0x09, 0x60, 0xe1, 0x04, 0xcd, 0x70, 0xb7, 0x51, 0xba, 0xca, 0xd0, 0xe7};
+	unsigned char actual_out[16] = {0};
+
+	memcpy(actual_out, shiftrows_in, 16);
+	ShiftRows(actual_out);
+	
+	if (memcmp(actual_out, shiftrows_expected_out, 16) != 0) {
+		fprintf(stderr, "ERROR: ShiftRows output didn't match expected output!\n");
+	}
+	else {
+		printf("PASS: ShiftRows\n");
+	}
+
+	unsigned char mixcol_expected_out[] = {0x5f, 0x72, 0x64, 0x15, 0x57, 0xf5, 0xbc, 0x92, 0xf7, 0xbe, 0x3b, 0x29, 0x1d, 0xb9, 0xf9, 0x1a};
+
+	memcpy(actual_out, shiftrows_expected_out, 16); /* sic! sr_exp_out contains the input for mixcolumns */
+	MixColumns(actual_out);
+
+	if (memcmp(actual_out, mixcol_expected_out, 16) != 0) {
+		fprintf(stderr, "ERROR: MixColumns output didn't match expected output\n");
+	}
+	else {
+		printf("PASS: MixColumns\n");
+	}
+
+	printf("\n");
+	printf("---------------------------------------\n");
 	printf("TESTING INVERSE FUNCTIONS\n");
 	printf("---------------------------------------\n");
+
+	unsigned char invshiftrows_in[] = {0xfd, 0xe5, 0x96, 0xf1, 0x05, 0x47, 0x37, 0xd2, 0x35, 0xfe, 0xba, 0xd7, 0xf1, 0xe3, 0xd0, 0x4e};
+	unsigned char invshiftrows_exp_out[] = /* även invmixcol IN */ {0xfd, 0xe3, 0xba, 0xd2, 0x05, 0xe5, 0xd0, 0xd7, 0x35, 0x47, 0x96, 0x4e, 0xf1, 0xfe, 0x37, 0xf1};
+
+	unsigned char invmix_exp_out[] = {0x3e, 0x1c, 0x22, 0xc0, 0xb6, 0xfc, 0xbf, 0x76, 0x8d, 0xa8, 0x50, 0x67, 0xf6, 0x17, 0x04, 0x95};
+	unsigned char buf[16] = {0};
+
+	memcpy(buf, invshiftrows_in, 16);
+	InvShiftRows(buf);
+
+	if(memcmp(buf, invshiftrows_exp_out, 16) != 0) {
+		fprintf(stderr, "ERROR: InvShiftRows output didn't match expected output\n");
+	}
+	else {
+		printf("PASS: InvShiftRows\n");
+	}
+
+	memcpy(buf, invshiftrows_exp_out, 16); /* sic, this is also mixcol in */
+
+	if(memcmp(buf, invmix_exp_out, 16) != 0) {
+		fprintf(stderr, "ERROR: InvMixColumns output didn't match expected output\n");
+	}
+	else {
+		printf("PASS: InvMixColumns\n");
+	}
+
+
+
 
 	unsigned char orig_test_data[] = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff};
 	unsigned char test_data[16];
@@ -168,7 +227,6 @@ int main() {
     else {
         printf("PASS: encryption\n");
     }
-
 
 
 	unsigned char plaintext[16] = {0};
