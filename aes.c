@@ -4,6 +4,8 @@
 #include <string.h> /* memcpy */
 #include <stdbool.h>
 
+#include <emmintrin.h>
+
 #include "tables.h"
 #include "debug.h" 
 #include "aes.h"
@@ -12,9 +14,12 @@ void AddRoundKey(unsigned char *state, const unsigned char *keys) {
 	// XOR the state with the round key, byte for byte.
 	// The caller is responsible for specifying the offset in keys!
 	// We simply process the first 16 bytes.
-	for (int i=0; i<16; i++) {
-		state[i] ^= keys[i];
-	}
+
+	__m128i state_val = _mm_load_si128((__m128i const *)state);
+	__m128i key_val = _mm_load_si128((__m128i const *)keys);
+	__m128i result    = _mm_xor_si128(state_val, key_val);
+
+	_mm_storeu_si128((__m128i *)state, result);
 }
 
 void SubBytes(unsigned char *state) {
