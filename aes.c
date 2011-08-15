@@ -138,21 +138,21 @@ void InvMixColumns(unsigned char *state) {
 void aes_encrypt(const unsigned char *plaintext, unsigned char *state, const unsigned char *keys) {
 #ifdef AESNI
 	asm __volatile__ (
-			"movq %[keys], %%r15;"
+			"movq %[keys], %%r15;"         // keep the pointer for easy pointer arithmetic
 			"movdqa %[plaintext], %%xmm0;" // load plaintext
-			"pxor (%%r15), %%xmm0;" // perform whitening
+			"pxor (%%r15), %%xmm0;"        // perform whitening
 
-			"mov $1, %%ecx;"
-			"_roundloop:"
-			"addq $16, %%r15;"
-			"aesenc (%%r15), %%xmm0;"
+			"mov $1, %%ecx;"          // initialize round counter
+			"_roundloop:"             
+			"addq $16, %%r15;"        // move the pointer to the next round key
+			"aesenc (%%r15), %%xmm0;" // perform AES round
 			"inc %%ecx;"
 			"cmp $10, %%ecx;"
-			"jl _roundloop;"
+			"jl _roundloop;" // for (i=1; i<10; i++)
 
-			"addq $16, %%r15;"
-			"aesenclast (%%r15), %%xmm0;"
-			"movdqa %%xmm0, %[state];"
+			"addq $16, %%r15;"            // move the pointer one last time
+			"aesenclast (%%r15), %%xmm0;" // perform the final AES round
+			"movdqa %%xmm0, %[state];"    // move the state back to the memory address
 
 			:[state] "=m"(*state)
 			:[plaintext] "m"(*plaintext), [keys] "m"(keys)
