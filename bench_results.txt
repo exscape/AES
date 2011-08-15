@@ -1,0 +1,13 @@
+#define NUM_LOOPS 10000000
+	for (int i=0; i < NUM_LOOPS; i++) {
+		text[1]++;
+		aes_encrypt(plaintext_ptr, ciphertext, expanded_key);
+//		print_hex(ciphertext, 16);
+	}
+
+gcc -m64 -std=gnu99 -o bin/bench keyschedule.c aes.c bench.c debug.c -O3 -Wall -Werror
+
+2011-08-15 12:26, git commit 2e47a10422985674f0621a39b6db082c66f3153b
+	10M loops @ 7.08 seconds
+	10M/7.08 loops/sec
+	(10M/7.08 * 16)/2^20 = 21.55 MiB/s 
