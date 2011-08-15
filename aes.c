@@ -11,7 +11,7 @@
 #include "aes.h"
 
 void AddRoundKey(unsigned char *state, const unsigned char *keys) {
-	// XOR the state with the round key, byte for byte.
+	// XOR the state with the round key
 	// The caller is responsible for specifying the offset in keys!
 	// We simply process the first 16 bytes.
 
@@ -103,6 +103,18 @@ void InvMixColumns(unsigned char *state) {
 	// This function is virtually identical to its non-inverse counterpart,
 	// the only difference is that the matrix used for multiplication is different.
 
+/*
+	__m128i state_val = _mm_load_si128((__m128i const *)state);
+	__m128i result;
+
+	asm("movdqa %1, %%xmm0;"
+		"aesimc %%xmm0, %0;"
+		: "=x"(result)
+		: "x"(state_val)
+		: "%xmm0");
+
+	_mm_storeu_si128((__m128i *)state, result);
+*/
 	for (int col=0; col<4; col++) {
 		unsigned char r[4];
 

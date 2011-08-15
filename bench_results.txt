@@ -11,3 +11,12 @@ gcc -m64 -std=gnu99 -o bin/bench keyschedule.c aes.c bench.c debug.c -O3 -Wall -
 	10M loops @ 7.08 seconds
 	10M/7.08 loops/sec
 	(10M/7.08 * 16)/2^20 = 21.55 MiB/s 
+
+From 2011-08-15 14:00 and onward, the following is used:
+gcc -m64 -std=gnu99 -o bin/bench keyschedule.c aes.c bench.c debug.c -O3 -Wall -Werror -msse -msse2 -msse3 -mfpmath=sse -march=nocona
+
+2011-08-15 14:00, git commit c41f6d88c7f942e19c1a96d26572569fbde9060b
+	Added SSE intrinsics in AddRoundKey (now a single SSE2 PXOR instead of 16 regular byte-sized XORs) (saved 0.3 seconds in 10M loops)
+	Changed optimization flags to use SSE (saved the rest)
+
+	10M loops @ 6.5 seconds = 23.47 MiB/s
