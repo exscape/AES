@@ -123,7 +123,7 @@ int main() {
 	unsigned char actual_out[16] = {0};
 
 	memcpy(actual_out, shiftrows_in, 16);
-	ShiftRows(actual_out);
+	ShiftRows(actual_out, 0 /* not inverse */);
 	
 	if (memcmp(actual_out, shiftrows_expected_out, 16) != 0) {
 		fprintf(stderr, "ERROR: ShiftRows output didn't match expected output!\n");
@@ -180,7 +180,7 @@ int main() {
 	unsigned char orig_test_data[] = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff};
 	unsigned char test_data[16];
 	memcpy(test_data, orig_test_data, 16);
-	ShiftRows(test_data);
+	ShiftRows(test_data, 0 /* not inverse */);
 	InvShiftRows(test_data);
 	if (memcmp(test_data, orig_test_data, 16) != 0) {
 		fprintf(stderr, "ERROR: InvShiftRows(ShiftRows(x)) != x\n");

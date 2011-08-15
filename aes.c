@@ -2,11 +2,11 @@
 #include <unistd.h>
 #include <stdint.h>
 #include <string.h> /* memcpy */
+#include <stdbool.h>
 
 #include "tables.h"
 #include "debug.h" 
-
-#define VDEBUG 1 /* verbose debug; prints the state during lots of steps */
+#include "aes.h"
 
 void AddRoundKey(unsigned char *state, const unsigned char *keys) {
 	// The caller is responsible for specifying the offset in keys!
@@ -30,7 +30,7 @@ void InvSubBytes(unsigned char *state) {
 	}
 }
 
-void ShiftRows(unsigned char *state) {
+void ShiftRows(unsigned char *state, bool inverse  /* is this InvShiftRows? */) {
 	uint32_t cols[4];
 
 	for (int i=1; i<=3; i++) {
@@ -40,38 +40,29 @@ void ShiftRows(unsigned char *state) {
 		// This extracts the correct bytes into a word-sized integer.
 		cols[i] = (state[4*0 + i] << 24) | (state[4*1 + i] << 16) | (state[4*2 + i] << 8) | (state[4*3 + i]);
 
+		//
 		// Move the bits around the correct amount
+		//
 		uint8_t steps = 8*i;
-		asm("roll %1, %0"
-		: "=g"(cols[i])
-		: "cI"(steps), "0"(cols[i]));
+
+		if (inverse == true) {
+			// InvShiftRows()
+			 asm("rorl %1, %0"
+			: "=g"(cols[i])
+			: "cI"(steps), "0"(cols[i]));
+		}
+		else {
+			// ShiftRows()
+			asm("roll %1, %0"
+			: "=g"(cols[i])
+			: "cI"(steps), "0"(cols[i]));
+		}
 
 		// Extract the bits back from the integer and place it back into the state
 		// This loop isn't as scary as it looks.
 		// (3-j) * 8 is used to create the inverse of the bitshifts in the above loop (24, 16, 8 and 0 in that order)
 		// We then AND the bits, which are now in the 8 least significats bits, with 0xff (1111 1111) to extract the value,
 		// then store it back where we fetched it from the state.
-		for (int j = 0; j<4; j++) {
-			state[4*j + i] = ((cols[i] >> (3-j) * 8) & 0xff);
-		}
-	}
-}
-
-void InvShiftRows(unsigned char *state) {
-	//
-	// The logic for this function is virtually identical to ShiftRows, so see that for an explanation.
-	// The only difference is that the rotation is reversed.
-	//
-	uint32_t cols[4];
-
-	for (int i=1; i<=3; i++) {
-		cols[i] = (state[4*0 + i] << 24) | (state[4*1 + i] << 16) | (state[4*2 + i] << 8) | (state[4*3 + i]);
-
-		uint8_t steps = 8*i;
-		asm("rorl %1, %0"
-		: "=g"(cols[i])
-		: "cI"(steps), "0"(cols[i]));
-
 		for (int j = 0; j<4; j++) {
 			state[4*j + i] = ((cols[i] >> (3-j) * 8) & 0xff);
 		}
@@ -157,7 +148,7 @@ void aes_encrypt(const unsigned char *plaintext, unsigned char *state, const uns
 
 
 */
-		ShiftRows(state);
+		ShiftRows(state, 0 /* not inverse */);
 /*		printf("round[%2d].s_row    ", round);
 		for (int i=0; i<16; i++) {
 			printf("%02x", state[i]);
@@ -177,7 +168,7 @@ void aes_encrypt(const unsigned char *plaintext, unsigned char *state, const uns
 
 	// Final round	
 	SubBytes(state);
-	ShiftRows(state);
+	ShiftRows(state, 0 /* not inverse */);
 	AddRoundKey(state, keys + 10*16);
 }
 
