@@ -2,13 +2,8 @@
 #include <unistd.h>
 #include <stdint.h>
 #include <string.h> /* memcpy */
-#ifndef _TABLES_H
 #include "tables.h"
-#endif
-
-#ifndef _DEBUG_H
 #include "debug.h" 
-#endif
 
 void RotWord(unsigned char *s) {
 	// Rotates the first 4 bytes in s in this manner:
@@ -45,6 +40,7 @@ int aes_expand_key(const unsigned char *in_key, unsigned char *out_keys) {
 		// Assign the value of the previous four bytes in the expanded key to tmp
 		memcpy(tmp, out_keys + bytes_done - 4, 4);
 
+		// Perform the key schedule core, and increase the iteration value
 		key_schedule_core(tmp, rcon_int);
 		rcon_int++;
 
@@ -74,4 +70,3 @@ int aes_expand_key(const unsigned char *in_key, unsigned char *out_keys) {
 
 	return 0;
 }
-
