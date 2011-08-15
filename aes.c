@@ -10,6 +10,8 @@
 #include "debug.h" 
 #include "aes.h"
 
+#define AESNI 1
+
 void AddRoundKey(unsigned char *state, const unsigned char *keys) {
 	// XOR the state with the round key
 	// The caller is responsible for specifying the offset in keys!
@@ -134,10 +136,29 @@ void InvMixColumns(unsigned char *state) {
 }
 
 void aes_encrypt(const unsigned char *plaintext, unsigned char *state, const unsigned char *keys) {
-	//
-	// The main loop. Should be easy to understand as it's virtually a copy of the pseudocode in the standard.
-	//
+#ifdef AESNI
+	asm __volatile__ (
+			"movq %[keys], %%r15;"
+			"movdqa %[plaintext], %%xmm0;" // load plaintext
+			"pxor (%%r15), %%xmm0;" // perform whitening
 
+			"mov $1, %%ecx;"
+			"_roundloop:"
+			"addq $16, %%r15;"
+			"aesenc (%%r15), %%xmm0;"
+			"inc %%ecx;"
+			"cmp $10, %%ecx;"
+			"jl _roundloop;"
+
+			"addq $16, %%r15;"
+			"aesenclast (%%r15), %%xmm0;"
+			"movdqa %%xmm0, %[state];"
+
+			:[state] "=m"(*state)
+			:[plaintext] "m"(*plaintext), [keys] "m"(keys)
+			:"%xmm0", /*"%xmm1",*/ "memory", "%ecx", "cc", "%r15"
+			);
+#else // not AESNI
 
 	// Initialize the state
 	memcpy(state, plaintext, 16);
@@ -199,6 +220,8 @@ void aes_encrypt(const unsigned char *plaintext, unsigned char *state, const uns
 	SubBytes(state);
 	ShiftRows(state, 0 /* not inverse */);
 	AddRoundKey(state, keys + 10*16);
+
+#endif // not AESNI
 }
 
 void aes_decrypt(const unsigned char *ciphertext, unsigned char *state, const unsigned char *keys) {
