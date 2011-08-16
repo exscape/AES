@@ -18,7 +18,7 @@ int main() {
 #define NUM_LOOPS 10000000
 	for (int i=0; i < NUM_LOOPS; i++) {
 		text[1]++;
-		aes_encrypt(plaintext_ptr, ciphertext, expanded_key);
+		aes_encrypt_aesni(plaintext_ptr, ciphertext, expanded_key);
 //		print_hex(ciphertext, 16);
 	}
 

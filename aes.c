@@ -135,8 +135,7 @@ void InvMixColumns(unsigned char *state) {
 	}
 }
 
-void aes_encrypt(const unsigned char *plaintext, unsigned char *state, const unsigned char *keys) {
-#ifdef AESNI
+void aes_encrypt_aesni(const unsigned char *plaintext, unsigned char *state, const unsigned char *keys) {
 	asm __volatile__ (
 			"movq %[keys], %%r15;"         // keep the pointer for easy pointer arithmetic
 			"movdqa %[plaintext], %%xmm0;" // load plaintext
@@ -158,61 +157,20 @@ void aes_encrypt(const unsigned char *plaintext, unsigned char *state, const uns
 			:[plaintext] "m"(*plaintext), [keys] "m"(keys)
 			:"%xmm0", /*"%xmm1",*/ "memory", "%ecx", "cc", "%r15"
 			);
-#else // not AESNI
+}
+void aes_encrypt_c(const unsigned char *plaintext, unsigned char *state, const unsigned char *keys) {
 
 	// Initialize the state
 	memcpy(state, plaintext, 16);
 
-/*		printf("round[ 0].input    ");
-		for (int i=0; i<16; i++) {
-			printf("%02x", state[i]);
-		}
-		printf("\n");
-
-		printf("round[ 0].k_sch    ");
-		for (int i=0; i<16; i++) {
-			printf("%02x", keys[i]);
-		}
-		printf("\n");
-*/
 	// Initial round
 	AddRoundKey(state, keys /*+ 0 */);
 
 	// Rounds
 	for (int round = 1; round < 10; round++) {
-/*
-		printf("round[%2d].start    ", round);
-		for (int i=0; i<16; i++) {
-			printf("%02x", state[i]);
-		}
-		printf("\n");
-
-		
-*/		
 		SubBytes(state);
-/*		printf("round[%2d].s_box    ", round);
-		for (int i=0; i<16; i++) {
-			printf("%02x", state[i]);
-		}
-		printf("\n");
-
-
-*/
 		ShiftRows(state, 0 /* not inverse */);
-/*		printf("round[%2d].s_row    ", round);
-		for (int i=0; i<16; i++) {
-			printf("%02x", state[i]);
-		}
-		printf("\n");
-
-*/
 		MixColumns(state);
-/*		printf("round[%2d].m_col    ", round);
-		for (int i=0; i<16; i++) {
-			printf("%02x", state[i]);
-		}
-		printf("\n");
-*/
 		AddRoundKey(state, keys + (round * 16));
 	}
 
@@ -220,8 +178,6 @@ void aes_encrypt(const unsigned char *plaintext, unsigned char *state, const uns
 	SubBytes(state);
 	ShiftRows(state, 0 /* not inverse */);
 	AddRoundKey(state, keys + 10*16);
-
-#endif // not AESNI
 }
 
 void aes_decrypt(const unsigned char *ciphertext, unsigned char *state, const unsigned char *keys) {

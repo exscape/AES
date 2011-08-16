@@ -212,18 +212,29 @@ int main() {
 	const unsigned char expected_ciphertext[] = {0x69, 0xc4, 0xe0, 0xd8, 0x6a, 0x7b, 0x04, 0x30, 0xd8, 0xcd, 0xb7, 0x80, 0x70, 0xb4, 0xc5, 0x5a};
 
 	aes_expand_key(key, out_keys);
-	aes_encrypt((const unsigned char *)original_plaintext, ciphertext, out_keys);
+	aes_encrypt_c((const unsigned char *)original_plaintext, ciphertext, out_keys);
 
 	if (memcmp(ciphertext, expected_ciphertext, 16) != 0) {
-        fprintf(stderr, "ERROR: ciphertext didn't match expected ciphertext\n");
+        fprintf(stderr, "ERROR: ciphertext didn't match expected ciphertext (C)\n");
 	
 		printf("expected:"); print_hex(expected_ciphertext, 16);
 		printf("got: "); print_hex(ciphertext, 16);
     }
     else {
-        printf("PASS: encryption\n");
+        printf("PASS: encryption (C)\n");
     }
 
+	aes_encrypt_aesni((const unsigned char *)original_plaintext, ciphertext, out_keys);
+
+	if (memcmp(ciphertext, expected_ciphertext, 16) != 0) {
+        fprintf(stderr, "ERROR: ciphertext didn't match expected ciphertext (AES-NI)\n");
+	
+		printf("expected:"); print_hex(expected_ciphertext, 16);
+		printf("got: "); print_hex(ciphertext, 16);
+    }
+    else {
+        printf("PASS: encryption (AES-NI)\n");
+    }
 	unsigned char plaintext[16] = {0};
 	aes_prepare_decryption_keys(out_keys);
 	aes_decrypt(expected_ciphertext, plaintext, out_keys);
