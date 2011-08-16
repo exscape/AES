@@ -37,6 +37,11 @@ void key_schedule_core(unsigned char *word, int i/*teration*/) {
 }
 
 int aes_expand_key(const unsigned char *in_key, unsigned char *out_keys) {
+	//
+	// Creates the round keys needed for encryption and decryption.
+	// in_key is the 16-byte key
+	// out_key needs to be a 176-byte char array; 11 16-byte keys will be stored in sequential order.
+	//
 	#define n 16
 	memcpy(out_keys, in_key, n); // The first n bytes of the expanded key are simply the encryption key
 

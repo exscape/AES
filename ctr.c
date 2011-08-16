@@ -13,9 +13,9 @@
 /*
  * The file structure used by this program is quite simple:
  * [nonce, 8 bytes]
- * [ciphertext block #1]
- * [ciphertext block #2]
- * [ciphertext block #n]
+ * [ciphertext block #1], 16 bytes
+ * [ciphertext block #2], 16 bytes
+ * [ciphertext block #n], 16 bytes
  * [padding byte, 1 byte]
  * The value of the last byte (0 - 15) indicates how many bytes of the last ciphertext block are padding bytes
  * (and should be discarded after decryption).
@@ -52,6 +52,8 @@ uint64_t get_nonce(void) {
 }
 
 void encrypt_file(const char *inpath, const char *outpath, const unsigned char *key) {
+	printf("encrypt_file called with inpath: %s\n", inpath);
+	printf("encrypt_file called with outpath: %s\n", outpath);
 
 	// Create a pointer to the correct function to use for this CPU
 	void (*aes_encrypt)(const unsigned char *, unsigned char *, const unsigned char *);
@@ -73,7 +75,7 @@ void encrypt_file(const char *inpath, const char *outpath, const unsigned char *
 
 	uint8_t padding = 16 - (size % 16);
 
-	printf("File to encrypt is %llu bytes; padding needed is %d bytes\n", file_size(inpath), (int)padding);
+//	printf("File to encrypt is %llu bytes; padding needed is %d bytes\n", file_size(inpath), (int)padding);
 
 	FILE *infile = fopen(inpath, "r");
 	if (!infile) {
@@ -92,13 +94,10 @@ void encrypt_file(const char *inpath, const char *outpath, const unsigned char *
 	unsigned char enc_block[16] = {0};
 	size_t actual_read = 0;
 
-
 	uint64_t counter[2];
 	counter[0] = get_nonce();
 	printf("nonce = %llx\n", counter[0]);
 	counter[1] = 1;
-
-	printf("\"");
 
 	fwrite((void *)&(counter[0]), 8, 1, outfile); // prepend nonce to the output file, so that we can use it for decryption later
 
@@ -130,16 +129,11 @@ void encrypt_file(const char *inpath, const char *outpath, const unsigned char *
 			fprintf(stderr, "*** Write error!\n");
 			exit(1);
 		}
-
-		printf("%16s", block);
 	}
 
 	fclose(infile);
 	fputc(padding, outfile); // write a final byte, whose value is the amount of padding used
 	fclose(outfile);
-
-	printf("\"\n");
-
 }
 
 void decrypt_file(const char *inpath, const char *outpath, const unsigned char *key) {
@@ -160,6 +154,10 @@ void decrypt_file(const char *inpath, const char *outpath, const unsigned char *
 	off_t size = file_size(inpath);
 	if (size < 25) {
 		fprintf(stderr, "Invalid file; all files encrypted with this program are 25 bytes or longer.\n");
+		exit(1);
+	}
+	if (! ( (size-1-8) % 16 == 0)) { // size - padding byte - nonce must be divisible by the block length
+		fprintf(stderr, "Invalid file size; file is either not encrypted by this program, or corrupt.\n");
 		exit(1);
 	}
 
@@ -200,7 +198,6 @@ void decrypt_file(const char *inpath, const char *outpath, const unsigned char *
 		memset(block, 'a', 16);
 		actual_read = fread(block, 1, 16, infile);
 		bytes_read += actual_read;
-		printf("actual read: %d\nbytes read total: %d\n", (int)actual_read, (int)bytes_read);
 		if (actual_read != 16 && actual_read != 1) { // all blocks are 16 bytes, padding byte is 1 byte; other values means something bad
 			fprintf(stderr, "*** Some sort of read error occured\n");
 			exit(1);
@@ -235,14 +232,15 @@ void decrypt_file(const char *inpath, const char *outpath, const unsigned char *
 int main(int argc, char *argv[]) {
 	unsigned char key[] = {0x2d, 0x7e, 0x86, 0xa3, 0x39, 0xd9, 0x39, 0x3e, 0xe6, 0x57, 0x0a, 0x11, 0x01, 0x90, 0x4e, 0x16};
 
-	if (argc != 2) {
-		fprintf(stderr, "Need an argument: either -e or -d\n");
+	if (argc != 5 || strcmp(argv[3], "-o") != 0) {
+		fprintf(stderr, "The arguments MUST be in the form of -d <infile> -o <outfile> *OR* -e <infile> -o <outfile>");
 		exit(1);
 	}
 	if (strcmp(argv[1], "-e") == 0)
-		encrypt_file("/Users/serenity/Programming/AES/testing/plaintext", "/Users/serenity/Programming/AES/testing/ciphertext", key);
+		encrypt_file(argv[2], argv[4], key);
+//		encrypt_file("/Users/serenity/Programming/AES/testing/plaintext", "/Users/serenity/Programming/AES/testing/ciphertext", key);
 	else if (strcmp(argv[1], "-d") == 0)
-		decrypt_file("/Users/serenity/Programming/AES/testing/ciphertext", "/Users/serenity/Programming/AES/testing/dec_plaintext", key);
+		decrypt_file(argv[2], argv[4], key);
 	else {
 		fprintf(stderr, "Need an argument: either -e or -d\n");
 		exit(1);
