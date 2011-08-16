@@ -180,7 +180,10 @@ void aes_encrypt_c(const unsigned char *plaintext, unsigned char *state, const u
 	AddRoundKey(state, keys + 10*16);
 }
 
-void aes_decrypt(const unsigned char *ciphertext, unsigned char *state, const unsigned char *keys) {
+void aes_decrypt_aesni(const unsigned char *ciphertext, unsigned char *state, const unsigned char *keys) {
+}
+
+void aes_decrypt_c(const unsigned char *ciphertext, unsigned char *state, const unsigned char *keys) {
 	//
 	// This function implement the AES Equivalent Inverse cipher described in the AES specification.
 	//

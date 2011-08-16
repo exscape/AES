@@ -237,16 +237,30 @@ int main() {
     }
 	unsigned char plaintext[16] = {0};
 	aes_prepare_decryption_keys(out_keys);
-	aes_decrypt(expected_ciphertext, plaintext, out_keys);
+
+	aes_decrypt_c(expected_ciphertext, plaintext, out_keys);
 
 	if (memcmp(plaintext, original_plaintext, 16) != 0) {
-		fprintf(stderr, "ERROR: decrypted plaintext didn't match original plaintext\n");
+		fprintf(stderr, "ERROR: decrypted plaintext didn't match original plaintext (C)\n");
 
 		printf("expected:"); print_hex(original_plaintext, 16);
 		printf("got:"); print_hex(plaintext, 16);
 	}
 	else {
-		printf("PASS: decryption\n");
+		printf("PASS: decryption (C)\n");
+	}
+
+	memset(plaintext, 0, 16);
+	aes_decrypt_aesni(expected_ciphertext, plaintext, out_keys);
+
+	if (memcmp(plaintext, original_plaintext, 16) != 0) {
+		fprintf(stderr, "ERROR: decrypted plaintext didn't match original plaintext (AES-NI)\n");
+
+		printf("expected:"); print_hex(original_plaintext, 16);
+		printf("got:"); print_hex(plaintext, 16);
+	}
+	else {
+		printf("PASS: decryption (AES-NI)\n");
 	}
 
 	printf("AES-NI support: ");
