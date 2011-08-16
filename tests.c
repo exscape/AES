@@ -5,6 +5,7 @@
 #include "keyschedule.h"
 #include "debug.h"
 #include "aes.h"
+#include "misc.h"
 
 int main() {
 
@@ -224,6 +225,7 @@ int main() {
     }
 
 	unsigned char plaintext[16] = {0};
+	aes_prepare_decryption_keys(out_keys);
 	aes_decrypt(expected_ciphertext, plaintext, out_keys);
 
 	if (memcmp(plaintext, original_plaintext, 16) != 0) {
@@ -234,6 +236,13 @@ int main() {
 	}
 	else {
 		printf("PASS: decryption\n");
+	}
+
+	printf("AES-NI support: ");
+	if (test_aesni_support()) {
+		printf("Yes\n");
+	} else {
+		printf("No\n");
 	}
 
 	return 0;

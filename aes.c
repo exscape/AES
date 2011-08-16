@@ -226,7 +226,7 @@ void aes_encrypt(const unsigned char *plaintext, unsigned char *state, const uns
 
 void aes_decrypt(const unsigned char *ciphertext, unsigned char *state, const unsigned char *keys) {
 	//
-	// Just like the aes_encrypt function, this is virtually a copy of the pseudocode in the AES standard, and should be easy to understand.
+	// This function implement the AES Equivalent Inverse cipher described in the AES specification.
 	//
 
 	// Initialize the state
@@ -237,14 +237,14 @@ void aes_decrypt(const unsigned char *ciphertext, unsigned char *state, const un
 
 	// Rounds
 	for (int round = 9 /* Nr - 1 */; round >= 1; round--) {
-		InvShiftRows(state);
 		InvSubBytes(state);
-		AddRoundKey(state, keys + (round * 16));
+		InvShiftRows(state);
 		InvMixColumns(state);
+		AddRoundKey(state, keys + (round * 16));
 	}
 
 	// Final round	
-	InvShiftRows(state);
 	InvSubBytes(state);
+	InvShiftRows(state);
 	AddRoundKey(state, keys + 0);
 }

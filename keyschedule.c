@@ -5,6 +5,9 @@
 #include "tables.h"
 #include "debug.h" 
 
+#include "aes.h" /* InvMixColumns */
+#include "misc.h" /* test_aesni_support */
+
 void RotWord(unsigned char *s) {
 	// Rotates the first 4 bytes in s in this manner:
 	// In : 1d 2c 3a 4f
@@ -69,4 +72,33 @@ int aes_expand_key(const unsigned char *in_key, unsigned char *out_keys) {
 	} // main loop
 
 	return 0;
+}
+
+void aes_prepare_decryption_keys(unsigned char *keys) {
+	// This function is called after aes_expand_key, to prepare the keys for decryption
+	// DO NOT call this function on the keys prior to encryption, or the encryption will fail!
+	bool aesni = test_aesni_support();
+
+	// Use the AESIMC instruction if CPU support is available.
+	if (aesni) {
+		asm __volatile__ (
+		"movq %[keys], %%r15;"    // save the keys pointer for easy pointer arithmetic
+		"movl $1, %%ecx;"         // set loop counter (int round=1)
+		"_loop:"                  
+		"addq $16, %%r15;"        // move pointer to keys + (round*16)
+		"aesimc (%%r15), %%xmm0;" // perform InverseMixColumns
+		"movdqa %%xmm0, (%%r15);" // save result back to memory
+		"inc %%ecx;"
+		"cmp $9, %%ecx;"          
+		"jle _loop;"              // loop while round <= 9
+		:[keys] "=m"(keys)
+		:
+		: "%r15", "%ecx", "%xmm0", "cc", "memory"
+		);
+	}
+	else {
+		for (int round=1; round <= 9; round++) {
+			InvMixColumns(keys + (round * 16));
+		}
+	}
 }
