@@ -32,9 +32,65 @@ void encrypt_file(const char *inpath, const char *outpath, const unsigned char *
 	unsigned char expanded_keys[176] = {0};
 	aes_expand_key(key, expanded_keys);
 
-	int8_t padding = file_size(inpath) % 16;
+	off_t size = file_size(inpath);
+	if (size <= 0) {
+		fprintf(stderr, "Cannot encrypt a file of size zero!\n");
+		exit(1);
+	}
+
+	int8_t padding = 16 - (size % 16);
 
 	printf("File to encrypt is %llu bytes; padding needed is %d bytes\n", file_size(inpath), (int)padding);
+
+	FILE *infile = fopen(inpath, "r");
+	if (!infile) {
+		perror(inpath);
+		exit(1);
+	}
+
+	FILE *outfile = fopen(outpath, "w");
+	if (!outfile) {
+		perror(outpath);
+		exit(1);
+	}
+
+	off_t bytes_read = 0;
+	unsigned char block[16] = {0};
+	unsigned char enc_block[16] = {0};
+	size_t actual_read = 0;
+
+	printf("\"");
+
+	while (bytes_read < size) {
+		memset(block, 'a', 16);
+		actual_read = fread(block, 1, 16, infile);
+		bytes_read += actual_read;
+		if (actual_read != 16) {
+			if (bytes_read - actual_read /* total bytes read *BEFORE* the last fread() */
+					!=
+					size - (16-padding)) { /* number of bytes that should be read in 16-byte blocks */
+				fprintf(stderr, "*** Some sort of read error occured.\n");
+				exit(1);
+			}
+			else {
+				// Add padding
+				memset(block + (16-padding), 'A', padding);
+			}
+		}
+
+		aes_encrypt_aesni(block, enc_block, expanded_keys);
+		if (fwrite(enc_block, 1, 16, outfile) != 16) {
+			fprintf(stderr, "*** Write error!\n");
+			exit(1);
+		}
+
+		printf("%16s", block);
+	}
+
+	fclose(infile);
+	fputc(padding, outfile); // write a final byte, whose value is the amount of padding used
+
+	printf("\"\n");
 
 }
 
