@@ -18,6 +18,12 @@ void RotWord(unsigned char *s) {
 }
 
 void key_schedule_core(unsigned char *word, int i/*teration*/) {
+	// This function appears to exist in newer Intel CPUs as AESKEYGENASSIST.
+	// However, that instruction requires the RCON value as an immediate value,
+	// which makes a loop impossible. Since this isn't really performance critical
+	// (unlike aes_{en,de}crypt, this isn't called over and over), I'll just ignore that.
+	// My laptop can perform 2 million key expansions per second, and since only ONE is needed per key (aka per session)...
+
 	// Rotate
 	RotWord(word);
 
