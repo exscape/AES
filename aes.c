@@ -142,12 +142,12 @@ void aes_encrypt_aesni(const unsigned char *plaintext, unsigned char *state, con
 			"pxor (%%r15), %%xmm0;"        // perform whitening
 
 			"mov $1, %%ecx;"          // initialize round counter
-			"_roundloop:"             
+			"_encrypt_roundloop:"             
 			"addq $16, %%r15;"        // move the pointer to the next round key
 			"aesenc (%%r15), %%xmm0;" // perform AES round
 			"inc %%ecx;"
 			"cmp $10, %%ecx;"
-			"jl _roundloop;" // for (i=1; i<10; i++)
+			"jl _encrypt_roundloop;" // for (i=1; i<10; i++)
 
 			"addq $16, %%r15;"            // move the pointer one last time
 			"aesenclast (%%r15), %%xmm0;" // perform the final AES round
@@ -155,9 +155,10 @@ void aes_encrypt_aesni(const unsigned char *plaintext, unsigned char *state, con
 
 			:[state] "=m"(*state)
 			:[plaintext] "m"(*plaintext), [keys] "m"(keys)
-			:"%xmm0", /*"%xmm1",*/ "memory", "%ecx", "cc", "%r15"
+			:"%xmm0", "memory", "%ecx", "cc", "%r15"
 			);
 }
+
 void aes_encrypt_c(const unsigned char *plaintext, unsigned char *state, const unsigned char *keys) {
 
 	// Initialize the state
@@ -181,6 +182,28 @@ void aes_encrypt_c(const unsigned char *plaintext, unsigned char *state, const u
 }
 
 void aes_decrypt_aesni(const unsigned char *ciphertext, unsigned char *state, const unsigned char *keys) {
+	   asm __volatile__ (
+            "movq %[keys], %%r15;"         // keep the pointer for easy pointer arithmetic
+			"addq $160, %%r15;"            // move the pointer to keys + 10*16
+            "movdqa %[plaintext], %%xmm0;" // load plaintext
+            "pxor (%%r15), %%xmm0;"        // perform whitening
+
+            "mov $9, %%ecx;"          // initialize round counter
+            "_decrypt_roundloop:"
+            "subq $16, %%r15;"        // move the pointer to the "next" round key
+            "aesdec (%%r15), %%xmm0;" // perform AES round
+            "dec %%ecx;"
+            "cmp $1, %%ecx;"
+            "jge _decrypt_roundloop;" // for (i=9; i >= 1; i--)
+
+            "subq $16, %%r15;"            // move the pointer one last time
+            "aesdeclast (%%r15), %%xmm0;" // perform the final AES round
+            "movdqa %%xmm0, %[state];"    // move the state back to the memory address
+
+            :[state] "=m"(*state)
+            :[plaintext] "m"(*ciphertext), [keys] "m"(keys)
+            :"%xmm0", "memory", "%ecx", "cc", "%r15"
+            );
 }
 
 void aes_decrypt_c(const unsigned char *ciphertext, unsigned char *state, const unsigned char *keys) {
