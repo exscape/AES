@@ -24,8 +24,6 @@
  */
 
 off_t file_size(const char *path) {
-	return 340051433;
-	/*
 	// Returns an integer-type variable containing the file size, in bytes.
 	struct stat st;
 	if (stat(path, &st) != 0) {
@@ -34,7 +32,6 @@ off_t file_size(const char *path) {
 	}
 
 	return (st.st_size);
-	*/
 }
 
 uint64_t get_nonce(void) {
@@ -95,12 +92,7 @@ void encrypt_file(const char *inpath, const char *outpath, const unsigned char *
 		exit(1);
 	}
 
-	// Bytes read in total
-	off_t bytes_read = 0;
-	// How many bytes we actually read this loop (0-16)
-	size_t actual_read = 0;
-
-	// The destination for fread; the plaintext
+	// The plaintext block
 	unsigned char block[16] = {0};
 
 	// Where we store the ciphertext
@@ -115,61 +107,77 @@ void encrypt_file(const char *inpath, const char *outpath, const unsigned char *
 
 	// Prepend the nonce to the output file; it's needed for decryption, and doesn't need to be a secret
 	fwrite((void *)&(counter[0]), 8, 1, outfile);
+	// Also prepend the padding byte, so that EOF is the end of data
+	fputc(padding, outfile);
+
+	assert(ftell(infile) == 0);
+	assert(ftell(outfile) == 9);
+
+
+#define BUFSIZE 32 // FIXME, 4MB? Make sure it's divisible by 16!
+	// TODO: ENSURE than all sizes work without problems! Especially input less than bufsize, 1-15 bytes larger than bufsize, 16 to BUFSIZE-1 bytes larger, and 2 times or more times BUFSIZE
+	unsigned char *in_buf = malloc(BUFSIZE);
+	if (!in_buf) {
+		fprintf(stderr, "Failed to allocate memory for the input buffer!\n");
+		exit(1);
+	}
+
+	unsigned char *out_buf = malloc(BUFSIZE);
+	if (!out_buf) {
+		fprintf(stderr, "Failed to allocate memory for the output buffer!\n");
+		exit(1);
+	}
+
+	// How many bytes we read this chunk
+	size_t b = 0;
 
 	// The main loop.
-	// We loop until we've read the entire file, of course.
-	while (bytes_read < size) {
-		// Read one block
-		actual_read = fread(block, 1, 16, infile);
-		bytes_read += actual_read;
+	while(!feof(infile)) {
 
-		// This isn't pretty, but it works.
-		// If the amount of bytes read isn't 16, one of two things happened:
-		// 1) A read error occured, because we've calculated how many bytes should be read in 16-byte blocks
-		// 2) We simply read the last block, and need to add padding to this last, incomplete block.
-		if (actual_read != 16) {
-			if (bytes_read - actual_read /* total bytes read *BEFORE* the last fread() (the one that WASN'T 16 bytes) */
-					!=
-					size - (16-padding)) /* number of bytes that SHOULD be read in 16-byte blocks */
-			{
-				// FIXME: We sometimes catch an unexpected EOF here (example file: Crimson II.m4a)
-				if (feof(infile)) {
-					fprintf(stderr, "*** EOF reached on the input file! This should not happen; unless the file size changed while running, this is a bug.\n");
-					exit(1);
-				}
-				else if (ferror(infile)) {
-					fprintf(stderr, "*** Some sort of read error occured (ferror() returns nonzero).\n");
-					exit(1);
-				}
-				else {
-					fprintf(stderr, "*** The incorrect number of bytes were read, without feof or ferror returning true. This is probably a bug.\n");
-					exit(1);
-				}
-			}
-			else {
-				// This is the last block, and it's not 16 bytes; add padding
-				memset(block + (16-padding), 'A', padding);
-			}
+		b = fread(in_buf, 1, BUFSIZE, infile);
+		if (b != BUFSIZE && !feof(infile)) {
+			fprintf(stderr, "Read error! Aborting!\n");
+			unlink(outpath); // Since we've already truncated it, and it's probably useless incomplete, let's delete it.
+			exit(1);
 		}
 
-		// Encrypt the *counter*...
-		aes_encrypt((unsigned char *)counter, enc_block, expanded_keys);
-		counter[1]++;
+		// Encrypt all the "whole" blocks in this chunk; if there's a partial block at the end, we
+		// take care of that after this loop.
+		int cur_block = 0; // this is needed (well, it makes things easy) in the if statement just outside the loop
+		for (cur_block = 0; cur_block < b/16; cur_block++) {
+			// TODO: we don't need to copy the data to the "block" array, do we? why not use the output array?
+			memcpy(block, in_buf + (cur_block * 16), 16);
+			aes_encrypt((unsigned char *)counter, enc_block, expanded_keys);
+			counter[1]++;
+			AddRoundKey(enc_block, block);
+			memcpy(out_buf + cur_block*16, enc_block, 16);
+		}
 
-		// ... and XOR it with the plaintext block, to create the ciphertext in enc_block
-		AddRoundKey(enc_block, block); // AddRoundKey does EXACTLY this
+		// This goes AFTER the inside loop, since the loop will encrypt all "full" blocks but never partial ones.
+		if (b % 16 != 0 && feof(infile)) {
+			// Pad + encrypt the last block
+			memcpy(block, in_buf + (cur_block * 16), 16-padding); // the last block should be 16-padding bytes long
+			memset(block + (16-padding), 'A', padding);
+			aes_encrypt((unsigned char *)counter, enc_block, expanded_keys);
+			counter[1]++;
+			AddRoundKey(enc_block, block);
+			memcpy(out_buf + (cur_block * 16), enc_block, 16);
+		}
 
-		// Write the encrypted block
-		if (fwrite(enc_block, 1, 16, outfile) != 16) {
+		// Write the encrypted chunk
+		// The math here could probably be prettier, but this is rather simple!
+		// The loop above loops until b/16, which is, for example, 3.125 for a 50-byte input with a 48-byte blocksize (as an example!).
+		// Then, because of int truncation, this expression evaluates to (50/16)*16 + 16 = 64 bytes - the length of the ciphertext after padding.
+		if (fwrite(out_buf, 1, (b/16)*16 + 16, outfile) != (b/16)*16 + 16) {
 			fprintf(stderr, "*** Write error!\n");
 			exit(1);
 		}
 	}
 
-	// Finish up, and write the padding byte to the encrypted file
 	fclose(infile);
-	fputc(padding, outfile);
 	fclose(outfile);
+	free(in_buf); in_buf = NULL;
+	free(out_buf); out_buf = NULL;
 }
 
 void decrypt_file(const char *inpath, const char *outpath, const unsigned char *key) {
@@ -215,12 +223,6 @@ void decrypt_file(const char *inpath, const char *outpath, const unsigned char *
 		exit(1);
 	}
 
-	// Read the padding byte (the very last byte of the file)
-	uint8_t padding;
-	fseek(infile, -1, SEEK_END); // seek to the last byte
-	fread(&padding, 1, 1, infile); // read the padding byte
-	fseek(infile, 0, 0); // seek to the beginning of the file
-
 	off_t bytes_read = 0;
 	unsigned char block[16] = {0};
 	unsigned char dec_block[16] = {0};
@@ -230,7 +232,12 @@ void decrypt_file(const char *inpath, const char *outpath, const unsigned char *
 	fread((void *)&(counter[0]), 8, 1, infile); // read nonce from file
 	counter[1] = 1; // initialize counter
 
-	bytes_read = 8; // nonce is 8 bytes
+	// Read the padding byte
+	uint8_t padding;
+	fread(&padding, 1, 1, infile);
+	printf("padding is %hhu bytes\n", padding);
+
+	bytes_read = 9; // nonce is 8 bytes, padding byte is 1
 
 	size_t bytes_to_write = 16;
 
@@ -238,12 +245,12 @@ void decrypt_file(const char *inpath, const char *outpath, const unsigned char *
 		memset(block, 'a', 16);
 		actual_read = fread(block, 1, 16, infile);
 		bytes_read += actual_read;
-		if (actual_read != 16 && actual_read != 1) { // all blocks are 16 bytes, padding byte is 1 byte; other values means something bad
+		if (actual_read != 16) { // all ciphertext blocks are 16 bytes; other values means something bad
 			fprintf(stderr, "*** Some sort of read error occured\n");
 			exit(1);
 		}
 
-		if (actual_read == 16) { // we found another block
+//		if (actual_read == 16) { // we found another block
 			aes_encrypt((unsigned char *)counter, dec_block, expanded_keys);
 			counter[1]++;
 
@@ -251,7 +258,7 @@ void decrypt_file(const char *inpath, const char *outpath, const unsigned char *
 			// AddRoundKey does exactly this
 			AddRoundKey(dec_block, block);
 
-			if (bytes_read == size - 1) {
+			if (bytes_read == size) {
 				// This is the very last block - the one with the padding, if there is any
 				if (padding != 0) {
 					bytes_to_write = 16 - padding;
@@ -262,7 +269,7 @@ void decrypt_file(const char *inpath, const char *outpath, const unsigned char *
 				fprintf(stderr, "*** Write error!\n");
 				exit(1);
 			}
-		}
+//		}
 	}
 
 	fclose(infile);
