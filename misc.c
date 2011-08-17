@@ -7,7 +7,7 @@ bool test_aesni_support(void) {
 			"cpuid;"
 			"andl $0x2000000, %%ecx;"
 			"shrl $25, %%ecx;"
-			"movl %%ecx, %[support];"
+			"movb %%cl, %[support];"
 			: [support] "=m"(support)
 			: : "%eax", "%ebx", "%ecx", "%edx", "cc"
 		);

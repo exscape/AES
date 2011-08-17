@@ -24,6 +24,7 @@
  */
 
 off_t file_size(const char *path) {
+	// Returns an integer-type variable containing the file size, in bytes.
 	struct stat st;
 	if (stat(path, &st) != 0) {
 		perror(path);
@@ -52,9 +53,6 @@ uint64_t get_nonce(void) {
 }
 
 void encrypt_file(const char *inpath, const char *outpath, const unsigned char *key) {
-	printf("encrypt_file called with inpath: %s\n", inpath);
-	printf("encrypt_file called with outpath: %s\n", outpath);
-
 	// Create a pointer to the correct function to use for this CPU
 	void (*aes_encrypt)(const unsigned char *, unsigned char *, const unsigned char *);
 	if (test_aesni_support()) {
@@ -64,18 +62,23 @@ void encrypt_file(const char *inpath, const char *outpath, const unsigned char *
 		aes_encrypt = aes_encrypt_c;
 	}
 
+	// Expand the keys; AES-128 uses 11 keys (11*16 = 176 bytes) for encryption/decryption, one per round plus one before the rounds
 	unsigned char expanded_keys[176] = {0};
 	aes_expand_key(key, expanded_keys);
 
+	// Sanity check: don't try to encrypt nothingness (or weird errors stemming from the signed type)
 	off_t size = file_size(inpath);
 	if (size <= 0) {
 		fprintf(stderr, "Cannot encrypt a file of size zero!\n");
 		exit(1);
 	}
 
+	// Since we can only encrypt full 16-byte blocks, we need to add padding to the last block
+	// if its length isn't divisble by 16. This calculates how many padding bytes are needed
+	// (in the range 0 - 15).
 	uint8_t padding = 16 - (size % 16);
-
-//	printf("File to encrypt is %llu bytes; padding needed is %d bytes\n", file_size(inpath), (int)padding);
+	if (padding == 16)
+		padding = 0;
 
 	FILE *infile = fopen(inpath, "r");
 	if (!infile) {
@@ -89,31 +92,47 @@ void encrypt_file(const char *inpath, const char *outpath, const unsigned char *
 		exit(1);
 	}
 
+	// Bytes read in total
 	off_t bytes_read = 0;
-	unsigned char block[16] = {0};
-	unsigned char enc_block[16] = {0};
+	// How many bytes we actually read this loop (0-16)
 	size_t actual_read = 0;
 
+	// The destination for fread; the plaintext
+	unsigned char block[16] = {0};
+
+	// Where we store the ciphertext
+	unsigned char enc_block[16] = {0};
+
+	// The counter (since this is CTR mode)
+	// The layout is simple: the first 64 bits is the nonce, and the second 64 bits is a simple counter.
+	// This should work for a maximum 2^64-1 blocks, which is 256 exabytes, so there's no need for a 128-bit counter.
 	uint64_t counter[2];
 	counter[0] = get_nonce();
-	printf("nonce = %llx\n", counter[0]);
 	counter[1] = 1;
 
-	fwrite((void *)&(counter[0]), 8, 1, outfile); // prepend nonce to the output file, so that we can use it for decryption later
+	// Prepend the nonce to the output file; it's needed for decryption, and doesn't need to be a secret
+	fwrite((void *)&(counter[0]), 8, 1, outfile);
 
+	// The main loop.
+	// We loop until we've read the entire file, of course.
 	while (bytes_read < size) {
-		memset(block, 'a', 16);
+		// Read one block
 		actual_read = fread(block, 1, 16, infile);
 		bytes_read += actual_read;
+
+		// This isn't pretty, but it works.
+		// If the amount of bytes read isn't 16, one of two things happened:
+		// 1) A read error occured, because we've calculated how many bytes should be read in 16-byte blocks
+		// 2) We simply read the last block, and need to add padding to this last, incomplete block.
 		if (actual_read != 16) {
-			if (bytes_read - actual_read /* total bytes read *BEFORE* the last fread() */
+			if (bytes_read - actual_read /* total bytes read *BEFORE* the last fread() (the one that WASN'T 16 bytes) */
 					!=
-					size - (16-padding)) { /* number of bytes that should be read in 16-byte blocks */
+					size - (16-padding)) { /* number of bytes that SHOULD be read in 16-byte blocks */
 				fprintf(stderr, "*** Some sort of read error occured.\n");
 				exit(1);
 			}
 			else {
-				// Add padding
+				// This is the last block, and it's not 16 bytes; add padding
 				memset(block + (16-padding), 'A', padding);
 			}
 		}
@@ -178,8 +197,6 @@ void decrypt_file(const char *inpath, const char *outpath, const unsigned char *
 	fread(&padding, 1, 1, infile); // read the padding byte
 	fseek(infile, 0, 0); // seek to the beginning of the file
 
-	printf("padding byte is %hhu\n", padding);
-
 	off_t bytes_read = 0;
 	unsigned char block[16] = {0};
 	unsigned char dec_block[16] = {0};
@@ -187,7 +204,6 @@ void decrypt_file(const char *inpath, const char *outpath, const unsigned char *
 
 	uint64_t counter[2];
 	fread((void *)&(counter[0]), 8, 1, infile); // read nonce from file
-	printf("nonce = %llx\n", counter[0]);
 	counter[1] = 1; // initialize counter
 
 	bytes_read = 8; // nonce is 8 bytes
@@ -238,7 +254,6 @@ int main(int argc, char *argv[]) {
 	}
 	if (strcmp(argv[1], "-e") == 0)
 		encrypt_file(argv[2], argv[4], key);
-//		encrypt_file("/Users/serenity/Programming/AES/testing/plaintext", "/Users/serenity/Programming/AES/testing/ciphertext", key);
 	else if (strcmp(argv[1], "-d") == 0)
 		decrypt_file(argv[2], argv[4], key);
 	else {
