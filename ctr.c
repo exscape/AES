@@ -137,13 +137,14 @@ void encrypt_file(const char *inpath, const char *outpath, const unsigned char *
 			}
 		}
 
+		// Encrypt the *counter*...
 		aes_encrypt((unsigned char *)counter, enc_block, expanded_keys);
 		counter[1]++;
 
-		for (int i=0; i<16; i++) {
-			enc_block[i] ^= block[i];
-		}
+		// ... and XOR it with the plaintext block, to create the ciphertext in enc_block
+		AddRoundKey(enc_block, block); // AddRoundKey does EXACTLY this
 
+		// Write the encrypted block
 		if (fwrite(enc_block, 1, 16, outfile) != 16) {
 			fprintf(stderr, "*** Write error!\n");
 			exit(1);
@@ -223,9 +224,9 @@ void decrypt_file(const char *inpath, const char *outpath, const unsigned char *
 			aes_encrypt((unsigned char *)counter, dec_block, expanded_keys);
 			counter[1]++;
 
-			for (int i=0; i<16; i++) {
-				dec_block[i] ^= block[i];
-			}
+			// XOR the counter and the ciphertext together to create the plaintext
+			// AddRoundKey does exactly this
+			AddRoundKey(dec_block, block);
 
 			if (bytes_read == size - 1) {
 				// This is the very last block - the one with the padding, if there is any
