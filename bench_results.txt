@@ -25,3 +25,20 @@ gcc -m64 -std=gnu99 -o bin/bench keyschedule.c aes.c bench.c debug.c -O3 -Wall -
 2011-08-15 20:15, to-be-commited AES-NI code
 
 	10M loops in 0.322 seconds = 474 MiB/s !!! Single-threaded!
+
+
+--------------
+CTR
+-------------
+
+2011-08-17 14:00:
+
+(Reads 16 bytes at a time)
+Crimson II.m4a (340051433 bytes)
+$ time bin/ctr -e /Volumes/ramdisk/crimson_plain -o /dev/null
+real	0m1.278s
+Decrypts at the same speed
+= 253.75 MiB/s
+
+$ time bin/ctr -e /dev/zero -o /dev/null ### force file_size of 340051433 bytes
+real	0m1.190s

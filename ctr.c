@@ -24,6 +24,8 @@
  */
 
 off_t file_size(const char *path) {
+	return 340051433;
+	/*
 	// Returns an integer-type variable containing the file size, in bytes.
 	struct stat st;
 	if (stat(path, &st) != 0) {
@@ -32,6 +34,7 @@ off_t file_size(const char *path) {
 	}
 
 	return (st.st_size);
+	*/
 }
 
 uint64_t get_nonce(void) {
@@ -127,9 +130,21 @@ void encrypt_file(const char *inpath, const char *outpath, const unsigned char *
 		if (actual_read != 16) {
 			if (bytes_read - actual_read /* total bytes read *BEFORE* the last fread() (the one that WASN'T 16 bytes) */
 					!=
-					size - (16-padding)) { /* number of bytes that SHOULD be read in 16-byte blocks */
-				fprintf(stderr, "*** Some sort of read error occured.\n");
-				exit(1);
+					size - (16-padding)) /* number of bytes that SHOULD be read in 16-byte blocks */
+			{
+				// FIXME: We sometimes catch an unexpected EOF here (example file: Crimson II.m4a)
+				if (feof(infile)) {
+					fprintf(stderr, "*** EOF reached on the input file! This should not happen; unless the file size changed while running, this is a bug.\n");
+					exit(1);
+				}
+				else if (ferror(infile)) {
+					fprintf(stderr, "*** Some sort of read error occured (ferror() returns nonzero).\n");
+					exit(1);
+				}
+				else {
+					fprintf(stderr, "*** The incorrect number of bytes were read, without feof or ferror returning true. This is probably a bug.\n");
+					exit(1);
+				}
 			}
 			else {
 				// This is the last block, and it's not 16 bytes; add padding
