@@ -151,8 +151,9 @@ void encrypt_file(const char *inpath, const char *outpath, const unsigned char *
 		}
 	}
 
+	// Finish up, and write the padding byte to the encrypted file
 	fclose(infile);
-	fputc(padding, outfile); // write a final byte, whose value is the amount of padding used
+	fputc(padding, outfile);
 	fclose(outfile);
 }
 
@@ -167,16 +168,22 @@ void decrypt_file(const char *inpath, const char *outpath, const unsigned char *
 		aes_encrypt = aes_encrypt_c;
 	}
 
+	// Perform key expansion (AES needs 11 keys; one for whitening and one per round - AES-128 has 10 rounds)
 	unsigned char expanded_keys[176] = {0};
 	aes_expand_key(key, expanded_keys);
-	// Note to self: no need to call aes_prepare_decryption_keys since we use aes_ENcrypt here
+	// Note to self: no need to call aes_prepare_decryption_keys since we use aes_ENcrypt for decryption as well
 
+	// Perform some size sanity checking: the smallest possible encryption length is 1 byte, which is padded to 16 bytes; after that,
+	// the nonce (8 bytes) and padding byte (1 byte) is added, making the smallest possible ciphertext file 25 bytes.
 	off_t size = file_size(inpath);
 	if (size < 25) {
 		fprintf(stderr, "Invalid file; all files encrypted with this program are 25 bytes or longer.\n");
 		exit(1);
 	}
-	if (! ( (size-1-8) % 16 == 0)) { // size - padding byte - nonce must be divisible by the block length
+	
+	// Since all ciphertext comes in blocks of 16, and there are 9 extra bytes, size-9 must be divisible by the block length (16)
+	// for this file to have been encrypted with this program.
+	if (! ( (size-1-8) % 16 == 0)) {
 		fprintf(stderr, "Invalid file size; file is either not encrypted by this program, or corrupt.\n");
 		exit(1);
 	}
@@ -193,6 +200,7 @@ void decrypt_file(const char *inpath, const char *outpath, const unsigned char *
 		exit(1);
 	}
 
+	// Read the padding byte (the very last byte of the file)
 	uint8_t padding;
 	fseek(infile, -1, SEEK_END); // seek to the last byte
 	fread(&padding, 1, 1, infile); // read the padding byte
