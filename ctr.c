@@ -114,7 +114,7 @@ void encrypt_file(const char *inpath, const char *outpath, const unsigned char *
 	assert(ftell(outfile) == 9);
 
 
-#define BUFSIZE 32 // FIXME, 4MB? Make sure it's divisible by 16!
+#define BUFSIZE 4 * (1 << 20) // FIXME, 4MB? Make sure it's divisible by 16!
 	// TODO: ENSURE than all sizes work without problems! Especially input less than bufsize, 1-15 bytes larger than bufsize, 16 to BUFSIZE-1 bytes larger, and 2 times or more times BUFSIZE
 	unsigned char *in_buf = malloc(BUFSIZE);
 	if (!in_buf) {
@@ -153,6 +153,9 @@ void encrypt_file(const char *inpath, const char *outpath, const unsigned char *
 			memcpy(out_buf + cur_block*16, enc_block, 16);
 		}
 
+		// Used in fwrite, below
+		size_t outsize = (b/16)*16;
+
 		// This goes AFTER the inside loop, since the loop will encrypt all "full" blocks but never partial ones.
 		if (b % 16 != 0 && feof(infile)) {
 			// Pad + encrypt the last block
@@ -167,13 +170,12 @@ void encrypt_file(const char *inpath, const char *outpath, const unsigned char *
 			counter[1]++;
 			AddRoundKey(enc_block, block);
 			memcpy(out_buf + (cur_block * 16), enc_block, 16);
+
+			outsize += 16; // make sure to write the padded block out, too
 		}
 
 		// Write the encrypted chunk
-		// The math here could probably be prettier, but this is rather simple!
-		// The loop above loops until b/16, which is, for example, 3.125 for a 50-byte input with a 48-byte blocksize (as an example!).
-		// Then, because of int truncation, this expression evaluates to (50/16)*16 + 16 = 64 bytes - the length of the ciphertext after padding.
-		if (fwrite(out_buf, 1, (b/16)*16 + 16, outfile) != (b/16)*16 + 16) {
+		if (fwrite(out_buf, 1, outsize, outfile) != outsize) {
 			fprintf(stderr, "*** Write error!\n");
 			exit(1);
 		}

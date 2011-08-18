@@ -40,5 +40,8 @@ real	0m1.278s
 Decrypts at the same speed
 = 253.75 MiB/s
 
-$ time bin/ctr -e /dev/zero -o /dev/null ### force file_size of 340051433 bytes
-real	0m1.190s
+2011-08-18 10:45:
+
+$ time bin/ctr -e /Volumes/ramdisk/crimson_plain -o /dev/null
+real	0m0.762s
+= 425.59 MiB/s - still single-threaded!
