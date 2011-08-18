@@ -10,6 +10,9 @@
 #include "debug.h"
 #include "misc.h" /* test_aesni_support */
 
+#define BUFSIZE 4 * (1 << 20) // 4 MiB
+//#define BUFSIZE 1024
+
 /*
  * The file structure used by this program is quite simple:
  * [nonce, 8 bytes]
@@ -113,8 +116,6 @@ void encrypt_file(const char *inpath, const char *outpath, const unsigned char *
 	assert(ftell(infile) == 0);
 	assert(ftell(outfile) == 9);
 
-
-#define BUFSIZE 4 * (1 << 20) // 4 MiB
 	unsigned char *in_buf = malloc(BUFSIZE);
 	if (!in_buf) {
 		fprintf(stderr, "Failed to allocate memory for the input buffer!\n");
@@ -229,11 +230,6 @@ void decrypt_file(const char *inpath, const char *outpath, const unsigned char *
 		exit(1);
 	}
 
-	off_t bytes_read = 0;
-	unsigned char block[16] = {0};
-	unsigned char dec_block[16] = {0};
-	size_t actual_read = 0;
-
 	uint64_t counter[2];
 	fread((void *)&(counter[0]), 8, 1, infile); // read nonce from file
 	counter[1] = 1; // initialize counter
@@ -241,45 +237,77 @@ void decrypt_file(const char *inpath, const char *outpath, const unsigned char *
 	// Read the padding byte
 	uint8_t padding;
 	fread(&padding, 1, 1, infile);
-//	printf("padding is %hhu bytes\n", padding);
 
-	bytes_read = 9; // nonce is 8 bytes, padding byte is 1
+	unsigned char block[16] = {0};
+	unsigned char enc_block[16] = {0};
 
-	size_t bytes_to_write = 16;
+	unsigned char *in_buf = malloc(BUFSIZE);
+	if (!in_buf) {
+		fprintf(stderr, "Failed to allocate memory for the input buffer!\n");
+		exit(1);
+	}
 
-	while (bytes_read < size) {
-		memset(block, 'a', 16);
-		actual_read = fread(block, 1, 16, infile);
-		bytes_read += actual_read;
-		if (actual_read != 16) { // all ciphertext blocks are 16 bytes; other values means something bad
-			fprintf(stderr, "*** Some sort of read error occured\n");
+	unsigned char *out_buf = malloc(BUFSIZE);
+	if (!out_buf) {
+		fprintf(stderr, "Failed to allocate memory for the output buffer!\n");
+		exit(1);
+	}
+
+	// How many bytes we read this chunk
+	size_t b = 0;
+
+	size_t to_write = size - 9 - padding;
+	size_t bytes_read = 9; // nonce + padding
+
+	// The main loop.
+	while(bytes_read < size) {
+		b = fread(in_buf, 1, BUFSIZE, infile);
+		bytes_read += b;
+		if (b != BUFSIZE && !feof(infile)) {
+			fprintf(stderr, "Read error! Aborting!\n");
+			unlink(outpath); // Since we've already truncated it, and it's probably useless incomplete, let's delete it.
 			exit(1);
 		}
 
-//		if (actual_read == 16) { // we found another block
-			aes_encrypt((unsigned char *)counter, dec_block, expanded_keys);
+		int cur_block = 0;
+		for (cur_block = 0; cur_block < b/16; cur_block++) {
+			// TODO: we don't need to copy the data to the "block" array, do we? why not use the output array?
+			memcpy(enc_block, in_buf + (cur_block * 16), 16);
+			aes_encrypt((unsigned char *)counter, block, expanded_keys);
 			counter[1]++;
+			AddRoundKey(block, enc_block);
 
-			// XOR the counter and the ciphertext together to create the plaintext
-			// AddRoundKey does exactly this
-			AddRoundKey(dec_block, block);
-
-			if (bytes_read == size) {
-				// This is the very last block - the one with the padding, if there is any
-				if (padding != 0) {
-					bytes_to_write = 16 - padding;
-				}
+			if (bytes_read == size && cur_block == (b/16)-1) {
+				// This is the last block; don't copy the padding, if any
+				memcpy(out_buf + cur_block*16, block, 16-padding);
 			}
-
-			if (fwrite(dec_block, 1, bytes_to_write, outfile) != bytes_to_write) {
-				fprintf(stderr, "*** Write error!\n");
-				exit(1);
+			else {
+				// Just a normal block
+				memcpy(out_buf + cur_block*16, block, 16);
 			}
-//		}
+		}
+
+		size_t outsize;
+		// Used in fwrite, below
+		if (to_write > BUFSIZE) {
+			outsize = b;
+		}
+		else {
+			outsize = b - padding;
+		}
+
+		// Write the decrypted chunk
+		if (fwrite(out_buf, 1, outsize, outfile) != outsize) {
+			fprintf(stderr, "*** Write error!\n");
+			exit(1);
+		}
+		to_write -= outsize;
 	}
 
 	fclose(infile);
 	fclose(outfile);
+	free(in_buf); in_buf = NULL;
+	free(out_buf); out_buf = NULL;
 }
 
 int main(int argc, char *argv[]) {
