@@ -114,8 +114,7 @@ void encrypt_file(const char *inpath, const char *outpath, const unsigned char *
 	assert(ftell(outfile) == 9);
 
 
-#define BUFSIZE 4 * (1 << 20) // FIXME, 4MB? Make sure it's divisible by 16!
-	// TODO: ENSURE than all sizes work without problems! Especially input less than bufsize, 1-15 bytes larger than bufsize, 16 to BUFSIZE-1 bytes larger, and 2 times or more times BUFSIZE
+#define BUFSIZE 4 * (1 << 20) // 4 MiB
 	unsigned char *in_buf = malloc(BUFSIZE);
 	if (!in_buf) {
 		fprintf(stderr, "Failed to allocate memory for the input buffer!\n");

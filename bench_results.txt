@@ -45,3 +45,4 @@ Decrypts at the same speed
 $ time bin/ctr -e /Volumes/ramdisk/crimson_plain -o /dev/null
 real	0m0.762s
 = 425.59 MiB/s - still single-threaded!
+(22.4 MiB/second without AES-NI support...)
