@@ -157,6 +157,11 @@ void encrypt_file(const char *inpath, const char *outpath, const unsigned char *
 		if (b % 16 != 0 && feof(infile)) {
 			// Pad + encrypt the last block
 			memcpy(block, in_buf + (cur_block * 16), 16-padding); // the last block should be 16-padding bytes long
+
+			// TODO: use random bytes here; since the padding byte is unencrypted, info about the last block leaks out,
+			// namely that the last *padding* bytes are 'A' characters.
+			// Using urandom bytes should help in all cases where the attacked can't control urandom.
+			// The BEST solution is probably to encrypt the padding byte, though!
 			memset(block + (16-padding), 'A', padding);
 			aes_encrypt((unsigned char *)counter, enc_block, expanded_keys);
 			counter[1]++;
@@ -235,7 +240,7 @@ void decrypt_file(const char *inpath, const char *outpath, const unsigned char *
 	// Read the padding byte
 	uint8_t padding;
 	fread(&padding, 1, 1, infile);
-	printf("padding is %hhu bytes\n", padding);
+//	printf("padding is %hhu bytes\n", padding);
 
 	bytes_read = 9; // nonce is 8 bytes, padding byte is 1
 
